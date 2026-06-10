@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Scan service QR</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    html,body{height:100%;margin:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+      background:var(--tg-theme-bg-color,#17212b);color:var(--tg-theme-text-color,#fff);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      text-align:center;padding:1.5rem;box-sizing:border-box}
+    h2{margin:.2rem 0 .6rem}
+    p{opacity:.85;max-width:22rem;line-height:1.4;margin:.4rem 0 1.4rem}
+    button{font-size:1.1rem;padding:.95rem 1.8rem;border:0;border-radius:12px;cursor:pointer;
+      background:var(--tg-theme-button-color,#3390ec);color:var(--tg-theme-button-text-color,#fff)}
+    #err{color:#ff6b6b;min-height:1.2rem;margin-top:1rem;font-size:.95rem}
+  </style>
+</head>
+<body>
+  <h2>📷 Service QR</h2>
+  <p id="msg">Point your camera at the QR code shown on the car screen.</p>
+  <button id="scan">Open scanner</button>
+  <div id="err"></div>
+  <script>
+    var tg = window.Telegram.WebApp;
+    tg.ready(); tg.expand();
+    var bilingual = (tg.initDataUnsafe && tg.initDataUnsafe.user &&
+                     (tg.initDataUnsafe.user.language_code || "").indexOf("ru") === 0);
+    if (bilingual) {
+      document.getElementById('msg').textContent =
+        "Наведи камеру на QR-код на экране машины.";
+      document.getElementById('scan').textContent = "Открыть сканер";
+    }
+
+    // Accept only a Tesla service link that carries BOTH parameters.
+    function valid(t){
+      if(!t) return null;
+      var vin  = (t.match(/productId=([0-9A-Za-z]+)/) || [])[1];
+      var asid = (t.match(/auth_session_id=([0-9A-Za-z-]+)/) || [])[1];
+      return (vin && asid) ? t : null;
+    }
+
+    function start(){
+      document.getElementById('err').textContent = "";
+      tg.showScanQrPopup({ text: bilingual ? "Сканируй сервисный QR" : "Scan the service QR" },
+        function(text){
+          var link = valid(text);
+          if(link){
+            tg.closeScanQrPopup();
+            tg.sendData(link);   // delivers the link to the bot, then closes the app
+            tg.close();
+            return true;
+          }
+          return false;          // not a Tesla QR — keep scanning
+        });
+    }
+
+    document.getElementById('scan').addEventListener('click', start);
+    try { start(); } catch(e) {}   // auto-open on launch where supported
+  </script>
+</body>
+</html>
