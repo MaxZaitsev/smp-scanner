@@ -12,29 +12,52 @@
       display:flex;flex-direction:column;align-items:center;justify-content:center;
       text-align:center;padding:1.5rem;box-sizing:border-box}
     h2{margin:.2rem 0 .6rem}
-    p{opacity:.85;max-width:22rem;line-height:1.4;margin:.4rem 0 1.4rem}
+    p{opacity:.85;max-width:23rem;line-height:1.45;margin:.4rem 0 1.3rem}
     button{font-size:1.1rem;padding:.95rem 1.8rem;border:0;border-radius:12px;cursor:pointer;
       background:var(--tg-theme-button-color,#3390ec);color:var(--tg-theme-button-text-color,#fff)}
+    button.secondary{background:transparent;color:var(--tg-theme-link-color,#6ab3f3);
+      text-decoration:underline;padding:.6rem}
     #err{color:#ff6b6b;min-height:1.2rem;margin-top:1rem;font-size:.95rem}
   </style>
 </head>
 <body>
-  <h2>📷 Service QR</h2>
+  <h2 id="title">📷 Service QR</h2>
   <p id="msg">Point your camera at the QR code shown on the car screen.</p>
   <button id="scan">Open scanner</button>
   <div id="err"></div>
   <script>
     var tg = window.Telegram.WebApp;
     tg.ready(); tg.expand();
-    var bilingual = (tg.initDataUnsafe && tg.initDataUnsafe.user &&
-                     (tg.initDataUnsafe.user.language_code || "").indexOf("ru") === 0);
-    if (bilingual) {
-      document.getElementById('msg').textContent =
-        "Наведи камеру на QR-код на экране машины.";
-      document.getElementById('scan').textContent = "Открыть сканер";
-    }
 
-    // Accept only a Tesla service link that carries BOTH parameters.
+    var ru = (tg.initDataUnsafe && tg.initDataUnsafe.user &&
+              (tg.initDataUnsafe.user.language_code || "").indexOf("ru") === 0);
+
+    // The native QR popup is only implemented on the mobile apps. On Desktop / macOS /
+    // Web the method exists but is unsupported, so the button would do nothing — detect
+    // that and show a clear instruction instead of a dead button.
+    var mobile = ["android", "ios"].indexOf(tg.platform) !== -1;
+    var supported = mobile && typeof tg.showScanQrPopup === "function" &&
+                    (!tg.isVersionAtLeast || tg.isVersionAtLeast("6.4"));
+
+    var T = {
+      title:   ru ? "📷 Сервисный QR" : "📷 Service QR",
+      msg:     ru ? "Наведи камеру на QR-код на экране машины."
+                  : "Point your camera at the QR code shown on the car screen.",
+      open:    ru ? "Открыть сканер" : "Open scanner",
+      nosup:   ru ? "📷 Сканер камеры работает только в мобильном Telegram (iOS/Android).\n\n"
+                  + "Открой бота на телефоне — или вернись в чат и пришли фото QR "
+                  + "либо вставь ссылку."
+                  : "📷 The camera scanner works only in the mobile Telegram app "
+                  + "(iOS/Android).\n\nOpen the bot on your phone — or go back to the "
+                  + "chat and send a photo of the QR, or paste the link.",
+      close:   ru ? "Закрыть" : "Close",
+      hint:    ru ? "Сканируй сервисный QR" : "Scan the service QR"
+    };
+    document.getElementById("title").textContent = T.title;
+    document.getElementById("msg").textContent = T.msg;
+    var btn = document.getElementById("scan");
+    btn.textContent = T.open;
+
     function valid(t){
       if(!t) return null;
       var vin  = (t.match(/productId=([0-9A-Za-z]+)/) || [])[1];
@@ -42,10 +65,16 @@
       return (vin && asid) ? t : null;
     }
 
+    function showFallback(){
+      document.getElementById("msg").textContent = T.nosup;
+      btn.textContent = T.close;
+      btn.onclick = function(){ tg.close(); };
+    }
+
     function start(){
-      document.getElementById('err').textContent = "";
-      tg.showScanQrPopup({ text: bilingual ? "Сканируй сервисный QR" : "Scan the service QR" },
-        function(text){
+      document.getElementById("err").textContent = "";
+      try {
+        tg.showScanQrPopup({ text: T.hint }, function(text){
           var link = valid(text);
           if(link){
             tg.closeScanQrPopup();
@@ -55,10 +84,17 @@
           }
           return false;          // not a Tesla QR — keep scanning
         });
+      } catch(e) {
+        showFallback();
+      }
     }
 
-    document.getElementById('scan').addEventListener('click', start);
-    try { start(); } catch(e) {}   // auto-open on launch where supported
+    if(supported){
+      btn.onclick = start;
+      try { start(); } catch(e) { showFallback(); }   // auto-open where possible
+    } else {
+      showFallback();
+    }
   </script>
 </body>
 </html>
