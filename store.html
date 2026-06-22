@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Service Mode Plus — Store</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root{--bg:var(--tg-theme-bg-color,#17212b);--sec:var(--tg-theme-secondary-bg-color,#232e3c);
+      --fg:var(--tg-theme-text-color,#fff);--hint:var(--tg-theme-hint-color,#8a9aa9);
+      --btn:var(--tg-theme-button-color,#3390ec);--btnfg:var(--tg-theme-button-text-color,#fff);
+      --link:var(--tg-theme-link-color,#6ab3f3)}
+    *{box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+      background:var(--bg);color:var(--fg);margin:0;padding:1rem 1rem 2rem}
+    h1{font-size:1.35rem;margin:.4rem 0 .2rem}
+    .trust{color:var(--link);font-size:.95rem;margin:.2rem 0 1.1rem}
+    .card{background:var(--sec);border-radius:14px;padding:1rem 1.1rem;margin:.6rem 0;
+      display:flex;align-items:center;justify-content:space-between;gap:1rem}
+    .left .n{font-size:1.15rem;font-weight:600}
+    .left .per{color:var(--hint);font-size:.85rem;margin-top:.15rem}
+    .badge{display:inline-block;background:#2ea6ff22;color:var(--link);border-radius:8px;
+      padding:.08rem .4rem;font-size:.8rem;margin-left:.4rem;vertical-align:middle}
+    button.buy{background:var(--btn);color:var(--btnfg);border:0;border-radius:10px;
+      padding:.7rem 1.05rem;font-size:1rem;font-weight:600;white-space:nowrap;cursor:pointer}
+    button.buy:disabled{opacity:.6}
+    .note{color:var(--hint);font-size:.85rem;margin-top:1.2rem;line-height:1.4}
+    #toast{position:fixed;left:1rem;right:1rem;bottom:1rem;background:#2ecc71;color:#062;
+      padding:.9rem 1rem;border-radius:12px;text-align:center;font-weight:600;display:none}
+  </style>
+</head>
+<body>
+  <h1 id="title">Buy connections</h1>
+  <div class="trust" id="trust">🛡 Charged only on success — a timeout is free.</div>
+  <div id="list"></div>
+  <div class="note" id="note">1 connection = 6 hours of unlimited runs on one VIN. Payment in Telegram Stars.</div>
+  <div id="toast"></div>
+
+  <script>
+    var tg = window.Telegram.WebApp;
+    tg.ready(); tg.expand();
+    var ru = (tg.initDataUnsafe && tg.initDataUnsafe.user &&
+              (tg.initDataUnsafe.user.language_code || "").indexOf("ru") === 0);
+
+    var LINKS = {
+      1:  "https://t.me/$bD9brqN_yEmQFwAAPu04jFYIpVM",
+      5:  "https://t.me/$3MEe-6N_yEmRFwAAJdDF8wIlNXk",
+      20: "https://t.me/$S1N0p6N_yEmSFwAA3EgVVcti9OQ",
+      50: "https://t.me/$jndUHqN_yEmTFwAA-HhmP-7xrDQ"
+    };
+    // n, total stars, discount%
+    var PKGS = [[1,1000,0],[5,4500,10],[20,16000,20],[50,37500,25]];
+
+    var T = ru ? {
+      title:"Купить подключения",
+      trust:"🛡 Списываем только при успешном входе — таймаут бесплатный.",
+      note:"1 подключение = 6 часов безлимита по одному VIN. Оплата в Telegram Stars.",
+      conn:function(n){return n+" "+(n===1?"подключение":(n<5?"подключения":"подключений"));},
+      buy:"Купить", off:"скидка", paid:"✅ Оплачено! Подключения зачислены.",
+      fail:"Платёж не завершён."
+    } : {
+      title:"Buy connections",
+      trust:"🛡 Charged only on success — a timeout is free.",
+      note:"1 connection = 6 hours of unlimited runs on one VIN. Payment in Telegram Stars.",
+      conn:function(n){return n+" connection"+(n===1?"":"s");},
+      buy:"Buy", off:"off", paid:"✅ Paid! Connections added.",
+      fail:"Payment was not completed."
+    };
+    document.getElementById("title").textContent = T.title;
+    document.getElementById("trust").textContent = T.trust;
+    document.getElementById("note").textContent = T.note;
+
+    function toast(msg, ok){
+      var t = document.getElementById("toast");
+      t.textContent = msg; t.style.background = ok ? "#2ecc71" : "#ff6b6b";
+      t.style.color = ok ? "#062" : "#fff"; t.style.display = "block";
+      setTimeout(function(){ t.style.display = "none"; }, 4000);
+    }
+
+    function buy(n, btn){
+      var link = LINKS[n];
+      if(!link) return;
+      btn.disabled = true;
+      try {
+        tg.openInvoice(link, function(status){
+          btn.disabled = false;
+          if(status === "paid"){ toast(T.paid, true); tg.HapticFeedback && tg.HapticFeedback.notificationOccurred("success"); }
+          else if(status === "failed"){ toast(T.fail, false); }
+          // 'cancelled' / 'pending' -> silent
+        });
+      } catch(e){ btn.disabled = false; toast(T.fail, false); }
+    }
+
+    var list = document.getElementById("list");
+    PKGS.forEach(function(p){
+      var n = p[0], total = p[1], off = p[2];
+      var per = Math.round(total / n);
+      var card = document.createElement("div"); card.className = "card";
+      var badge = off ? '<span class="badge">−'+off+'% '+T.off+'</span>' : '';
+      card.innerHTML =
+        '<div class="left"><div class="n">'+T.conn(n)+badge+'</div>'+
+        '<div class="per">'+per+' ⭐ / '+ (ru?"подкл.":"conn") +'</div></div>'+
+        '<button class="buy">'+T.buy+' '+total+' ⭐</button>';
+      var btn = card.querySelector("button");
+      btn.addEventListener("click", function(){ buy(n, btn); });
+      list.appendChild(card);
+    });
+  </script>
+</body>
+</html>
