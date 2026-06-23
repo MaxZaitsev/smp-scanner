@@ -25,6 +25,9 @@
       padding:.7rem 1.05rem;font-size:1rem;font-weight:600;white-space:nowrap;cursor:pointer}
     button.buy:disabled{opacity:.6}
     .note{color:var(--hint);font-size:.85rem;margin-top:1.2rem;line-height:1.4}
+    a.partner{display:block;text-align:center;margin-top:1.3rem;color:var(--link);
+      text-decoration:none;font-weight:600;font-size:1rem;padding:.7rem;
+      border:1px solid var(--link);border-radius:12px}
     #toast{position:fixed;left:1rem;right:1rem;bottom:1rem;background:#2ecc71;color:#062;
       padding:.9rem 1rem;border-radius:12px;text-align:center;font-weight:600;display:none}
   </style>
@@ -34,6 +37,7 @@
   <div class="trust" id="trust">🛡 Charged only on success — a timeout is free.</div>
   <div id="list"></div>
   <div class="note" id="note">1 connection = 6 hours of unlimited runs on one VIN. Payment in Telegram Stars.</div>
+  <a id="partner" class="partner" href="#">💰 Become a partner — earn 20%</a>
   <div id="toast"></div>
 
   <script>
@@ -57,18 +61,25 @@
       note:"1 подключение = 6 часов безлимита по одному VIN. Оплата в Telegram Stars.",
       conn:function(n){return n+" "+(n===1?"подключение":(n<5?"подключения":"подключений"));},
       buy:"Купить", off:"скидка", paid:"✅ Оплачено! Подключения зачислены.",
-      fail:"Платёж не завершён."
+      fail:"Платёж не завершён.", partner:"💰 Стать партнёром — зарабатывай 20%"
     } : {
       title:"Buy connections",
       trust:"🛡 Charged only on success — a timeout is free.",
       note:"1 connection = 6 hours of unlimited runs on one VIN. Payment in Telegram Stars.",
       conn:function(n){return n+" connection"+(n===1?"":"s");},
       buy:"Buy", off:"off", paid:"✅ Paid! Connections added.",
-      fail:"Payment was not completed."
+      fail:"Payment was not completed.", partner:"💰 Become a partner — earn 20%"
     };
     document.getElementById("title").textContent = T.title;
     document.getElementById("trust").textContent = T.trust;
     document.getElementById("note").textContent = T.note;
+
+    var pl = document.getElementById("partner");
+    pl.textContent = T.partner;
+    pl.addEventListener("click", function(e){
+      e.preventDefault();
+      tg.openTelegramLink("https://t.me/teslaServiceMode_bot?start=partner");
+    });
 
     function toast(msg, ok){
       var t = document.getElementById("toast");
