@@ -51,7 +51,14 @@
                   + "(iOS/Android).\n\nOpen the bot on your phone — or go back to the "
                   + "chat and send a photo of the QR, or paste the link.",
       close:   ru ? "Закрыть" : "Close",
-      hint:    ru ? "Сканируй сервисный QR" : "Scan the service QR"
+      hint:    ru ? "Сканируй сервисный QR" : "Scan the service QR",
+      again:   ru ? "Сканировать ещё раз" : "Scan again",
+      noread:  ru ? "Ничего не прочиталось. Мешают блики и наклон — держи телефон "
+                  + "прямо перед экраном машины."
+                  : "Nothing was read. Glare and a steep angle are the usual reasons — "
+                  + "hold the phone straight in front of the car screen.",
+      wrong:   ru ? "Это не сервисный QR — отправляю подсказку в чат…"
+                  : "That isn't the Service Mode QR — sending you a hint in the chat…"
     };
     document.getElementById("title").textContent = T.title;
     document.getElementById("msg").textContent = T.msg;
@@ -71,18 +78,54 @@
       btn.onclick = function(){ tg.close(); };
     }
 
+    // A scan that reads nothing leaves no trace anywhere, which is why failures used
+    // to be invisible. Report every outcome to the bot so it can answer and be counted.
+    var done = false, openedAt = 0;
+    var NO_QR = "smp:noqr";
+
+    function report(payload, note){
+      if(done) return;
+      done = true;
+      if(note) document.getElementById("msg").textContent = note;
+      try { tg.closeScanQrPopup(); } catch(e){}
+      tg.sendData(payload);   // delivers to the bot and closes the Mini App
+      tg.close();
+    }
+
+    function showNoRead(){
+      if(done) return;
+      document.getElementById("msg").textContent = T.noread;
+      btn.textContent = T.again;
+      btn.onclick = start;
+    }
+
+    // Fires when the user dismisses the scanner. If they actually tried for a while,
+    // treat it as "couldn't read" and let the bot offer the photo route instead.
+    try {
+      tg.onEvent("scanQrPopupClosed", function(){
+        if(done) return;
+        if(openedAt && (window.performance.now() - openedAt) > 8000){
+          report(NO_QR);
+        } else {
+          showNoRead();
+        }
+      });
+    } catch(e){}
+
     function start(){
       document.getElementById("err").textContent = "";
       try {
+        openedAt = window.performance.now();
         tg.showScanQrPopup({ text: T.hint }, function(text){
           var link = valid(text);
           if(link){
-            tg.closeScanQrPopup();
-            tg.sendData(link);   // delivers the link to the bot, then closes the app
-            tg.close();
-            return true;
+            report(link);
+          } else {
+            // Read something, but not ours. Send the raw text so the bot can explain
+            // and so we can see what people are actually pointing the camera at.
+            report(String(text || "").slice(0, 512), T.wrong);
           }
-          return false;          // not a Tesla QR — keep scanning
+          return true;         // always close the scanner; silence was the bug
         });
       } catch(e) {
         showFallback();
